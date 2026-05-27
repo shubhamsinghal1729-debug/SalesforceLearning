@@ -1,0 +1,84 @@
+@RestResource(urlMapping='/HelpHub/AddCommentonActivities/*')
+global class SC_AddCommentActivityAPI {
+
+    @HttpPost
+    global static CommentResponse addCaseComment(
+        String caseId, 
+        String commentBody, 
+        String fileName, 
+        String base64FileContent
+    ) {
+        CommentResponse res = new CommentResponse();
+        
+        // 1. Core Validation Checks
+        if (String.isEmpty(caseId) || !(caseId instanceof Id) || ((Id)caseId).getSObjectType() != Case.SObjectType) {
+            res.status = 'Error';
+            res.message = 'Invalid or missing Case ID.';
+            return res;
+        }
+        
+        if (String.isEmpty(commentBody)) {
+            res.status = 'Error';
+            res.message = 'Comment body cannot be empty.';
+            return res;
+        }
+
+        Savepoint sp = Database.setSavepoint();
+
+        try {
+            Id relatedContentDocId = null;
+
+            // 2. Process File Upload if file data is provided
+            if (String.isNotEmpty(base64FileContent) && String.isNotEmpty(fileName)) {
+                ContentVersion cv = new ContentVersion();
+                cv.Title = fileName;
+                cv.PathOnClient = fileName;
+                cv.VersionData = EncodingUtil.base64Decode(base64FileContent); 
+                cv.FirstPublishLocationId = caseId; 
+              //  cv.SharingPrivacy = 'WebVisible';
+                insert cv;
+
+                // CRITICAL FIX: Query the ContentDocumentId (068), NOT the ContentVersionId (069)
+                ContentVersion insertedCv = [
+                    SELECT ContentDocumentId 
+                    FROM ContentVersion 
+                    WHERE Id = :cv.Id 
+                    LIMIT 1
+                ];
+                relatedContentDocId = insertedCv.ContentDocumentId;
+            }
+
+            // 3. Create the FeedItem (Chatter Post)
+            FeedItem post = new FeedItem();
+            post.ParentId = caseId;
+            post.Body = commentBody + '\n\n[Attached File: ' + fileName + ']';     
+            
+           /* if (relatedContentDocId != null) {
+                post.Type = 'ContentPost';
+                post.RelatedRecordId = relatedContentDocId; // Accepts the 068 ContentDocument ID perfectly
+            } else { */
+                post.Type = 'TextPost';
+          //  }
+            
+            insert post;
+
+            // 4. Prepare Success Response
+            res.status = 'Success';
+            res.message = 'Comment and file uploaded successfully.';
+            res.commentId = post.Id;
+            
+        } catch (Exception e) {
+            Database.rollback(sp); 
+            res.status = 'Error';
+            res.message = 'Failed to execute: ' + e.getMessage();
+        }
+
+        return res;
+    }
+
+    global class CommentResponse {
+        global String status;
+        global String message;
+        global String commentId;
+    }
+}
