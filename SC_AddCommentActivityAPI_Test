@@ -1,0 +1,9 @@
+URL - https://orgfarm-3202bd8163-dev-ed.develop.my.salesforce.com/services/apexrest/HelpHub/AddCommentonActivities
+Authorization - Bearer Token
+raw json - 
+{
+"caseId": "500VB00000d9cZ4YAI",
+"commentBody": "Attaching request image",
+"fileName": "screenshot_fix.png",
+""base64FileContent" : "iVbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+}
