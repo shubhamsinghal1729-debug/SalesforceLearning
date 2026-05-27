@@ -1,0 +1,64 @@
+@RestResource(urlMapping='/HelpHub/caseActivities/*')
+global without sharing class SC_ActivityAPI {
+    
+    @HttpGet
+    global static CaseResponse getCaseDetailsWithFeed() {
+        RestRequest req = RestContext.request;
+        CaseResponse res = new CaseResponse();
+        
+        String caseId = req.requestURI.substring(req.requestURI.lastIndexOf('/') + 1);
+        
+        if (String.isEmpty(caseId) || !(caseId instanceof Id) || ((Id)caseId).getSObjectType() != Case.SObjectType) {
+            res.status = 'Error';
+            return res;
+        }
+        
+        try {            
+            res.feedComments = new List<FeedWrapper>();
+            
+            // 2. Fetch Chatter Posts / Feed Items (Matches your screenshot)
+            for (FeedItem item : [
+                SELECT Id, Body, CreatedBy.Name, CreatedDate, Type 
+                FROM FeedItem 
+                WHERE ParentId = :caseId AND Type = 'TextPost'
+                ORDER BY CreatedDate DESC
+            ]) {
+                // Formatting body to strip HTML if it's rich text, or leave as plain text
+                String cleanBody = item.Body != null ? item.Body.replaceAll('<[^>]*>', '') : '';
+                
+                res.feedComments.add(new FeedWrapper(
+                    item.CreatedBy.Name,
+                    cleanBody,
+                    item.CreatedDate
+                ));
+            }
+            
+            res.status = 'Success';
+            
+        } catch (QueryException qe) {
+            res.status = 'Error';
+        } catch (Exception e) {
+            res.status = 'Error';
+        }
+        
+        return res;
+    }
+    
+    // Response Structure
+    global class CaseResponse {
+        global String status;
+        global List<FeedWrapper> feedComments;
+    }
+    
+    global class FeedWrapper {
+        global String author;
+        global String commentText;
+        global DateTime createdDate;
+        
+        global FeedWrapper(String author, String commentText, DateTime createdDate) {
+            this.author = author;
+            this.commentText = commentText;
+            this.createdDate = createdDate;
+        }
+    }
+}
