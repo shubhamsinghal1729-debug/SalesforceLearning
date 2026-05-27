@@ -1,0 +1,23 @@
+@RestResource(urlMapping='/HelpHub/CaseAPI/*')
+global with sharing class SC_CaseAPI {
+    
+    @HttpGet
+    global static List<Case> getCaseDetails(){
+        String requestBody = RestContext.request.requestBody.toString();
+        RequestData data = (RequestData) JSON.deserialize(requestBody,RequestData.class);
+        List<Case> caseList = [Select Id,CaseNumber,Subject,Status,Priority,Origin,Description,AccountId,ContactId,OwnerId,CreatedDate
+                               FROM Case where Account.Entity_Id__c IN : data.ControlNumber OR Account.MID__c IN: data.MID];
+        if(caseList.isEmpty()){
+            RestContext.response.statusCode = 404;
+            throw new CalloutException('Case not found');
+        }
+        return caseList;       
+        
+    }
+    
+    public class RequestData{
+        public List<String> MID;
+        public List<String> ControlNumber;
+    }
+    
+}
